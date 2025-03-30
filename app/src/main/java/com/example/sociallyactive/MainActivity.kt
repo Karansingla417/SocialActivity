@@ -20,7 +20,7 @@ class MainActivity : AppCompatActivity(), Ipostadapter {
         setContentView(R.layout.activity_main)
 
         fab.setOnClickListener{
-                val intent=Intent(this,CreatePostActivity::class.java)
+                val intent= intArrayOf(this,CreatePostActivity::class.java)
             startActivity(intent)
         }
 
