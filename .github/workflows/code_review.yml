@@ -1,70 +1,29 @@
 name: AI Code Review
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+on: [pull_request]
 
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
+      - uses: actions/checkout@v4
 
-      - name: Generate diff
-        id: diff
-        run: |
-          git fetch origin master
-          git diff origin/master...HEAD > diff.txt
-          echo "DIFF=$(base64 -w0 diff.txt)" >> $GITHUB_OUTPUT
-
-      - name: Analyze changes
-        id: analyze
+      - name: Analyze PR
         env:
-          HF_TOKEN: "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"
+          # 🔴 Temporary hardcoded token (replace XXX)
+          HF_TOKEN: "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"  
         run: |
-          DIFF_CONTENT=$(base64 --decode <<< "${{ steps.diff.outputs.DIFF }}")
-          TRUNCATED_DIFF=$(echo "$DIFF_CONTENT" | head -c 1500)
-          
-          PROMPT="Analyze these code changes:
-          1. Summary of changes
-          2. Potential impact
-          3. Any obvious issues
-          
-          Diff:
-          $TRUNCATED_DIFF"
+          # Get diff safely
+          git diff HEAD^1 > diff.txt
+          DIFF=$(head -n 30 diff.txt | head -c 1000)
 
-          RESPONSE=$(curl -s -X POST \
-            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1" \
+          # Call API
+          curl -s -X POST \
             -H "Authorization: Bearer $HF_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"inputs\": \"$PROMPT\"}")
+            -d "{\"inputs\":\"Explain these changes:\\n$DIFF\"}" \
+            "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1" \
+            | jq -r '.[0].generated_text' > comment.txt
 
-          if [[ $(echo "$RESPONSE" | jq 'has(\"error\")') == "true" ]]; then
-            echo "EXPLANATION=⚠️ API Error: $(echo "$RESPONSE" | jq -r '.error')" >> $GITHUB_ENV
-          else
-            echo "EXPLANATION<<EOF" >> $GITHUB_ENV
-            echo "$(echo "$RESPONSE" | jq -r '.[0].generated_text')" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          fi
-
-      - name: Create review comment
-        if: always()
-        uses: actions/github-script@v6
-        env:
-          EXPLANATION: ${{ env.EXPLANATION }}
-        with:
-          script: |
-            const body = `### 🤖 AI Code Review
-            
-            ${process.env.EXPLANATION}
-            
-            ---
-            *This automated review uses HuggingFace's free API*`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+          # Post comment
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "$(cat comment.txt)"
