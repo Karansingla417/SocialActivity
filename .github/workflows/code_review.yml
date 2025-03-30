@@ -14,8 +14,8 @@ jobs:
       - name: Generate diff
         id: diff
         run: |
-          git fetch origin main
-          git diff origin/main...HEAD > diff.txt
+          git fetch origin master
+          git diff origin/master...HEAD > diff.txt
           echo "DIFF=$(base64 -w0 diff.txt)" >> $GITHUB_OUTPUT
 
       - name: Analyze changes
