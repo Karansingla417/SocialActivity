@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity(), Ipostadapter {
             startActivity(intent)
         }
 
-        setupRecyclerView()
+        setupRecyclerView() ///karan is here
 
     }
 
