@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity(), Ipostadapter {
 
         fab.setOnClickListener{
                 val intent=Intent(this,CreatePostActivity::class.java)
-            startActivity(intent)
+            startActivity(intent) //karan is here
         }
 
         setupRecyclerView()
