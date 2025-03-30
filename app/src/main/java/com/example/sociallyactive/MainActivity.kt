@@ -17,7 +17,7 @@ class MainActivity : AppCompatActivity(), Ipostadapter {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.activity_main) //changing to check
 
         fab.setOnClickListener{
                 val intent=Intent(this,CreatePostActivity::class.java)
