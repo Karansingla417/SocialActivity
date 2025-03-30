@@ -7,76 +7,64 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the code with full history for diff
       - uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
-      # Get the diff between main and PR branch
       - name: Generate diff
         id: diff
         run: |
           git fetch origin main
           git diff origin/main...HEAD > diff.txt
-          # Base64 encode to preserve formatting
           echo "DIFF=$(base64 -w0 diff.txt)" >> $GITHUB_OUTPUT
 
-      # Call HuggingFace API for analysis
       - name: Analyze changes
         id: analyze
         env:
           HF_TOKEN: "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"
         run: |
-          # Decode the diff
           DIFF_CONTENT=$(base64 --decode <<< "${{ steps.diff.outputs.DIFF }}")
-          
-          # Truncate to stay within token limits
           TRUNCATED_DIFF=$(echo "$DIFF_CONTENT" | head -c 1500)
           
-          # Prepare the prompt
-          PROMPT="Analyze these code changes and provide:
-          1. Brief summary of changes
+          PROMPT="Analyze these code changes:
+          1. Summary of changes
           2. Potential impact
           3. Any obvious issues
           
           Diff:
           $TRUNCATED_DIFF"
 
-          # Make API request
           RESPONSE=$(curl -s -X POST \
             "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1" \
             -H "Authorization: Bearer $HF_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"inputs\": \"$PROMPT\"}")
 
-          # Process response
           if [[ $(echo "$RESPONSE" | jq 'has(\"error\")') == "true" ]]; then
-            ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error')
-            echo "EXPLANATION=⚠️ API Error: $ERROR_MSG" >> $GITHUB_ENV
+            echo "EXPLANATION=⚠️ API Error: $(echo "$RESPONSE" | jq -r '.error')" >> $GITHUB_ENV
           else
-            echo "EXPLANATION=$(echo "$RESPONSE" | jq -r '.[0].generated_text')" >> $GITHUB_ENV
+            echo "EXPLANATION<<EOF" >> $GITHUB_ENV
+            echo "$(echo "$RESPONSE" | jq -r '.[0].generated_text')" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
           fi
 
-      # Post results as PR comment
       - name: Create review comment
         if: always()
         uses: actions/github-script@v6
+        env:
+          EXPLANATION: ${{ env.EXPLANATION }}
         with:
           script: |
             const body = `### 🤖 AI Code Review
-
-${process.env.EXPLANATION}
-
----
-*This automated review uses HuggingFace's free API. Responses may be limited during peak times.*`;
-
-            try {
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: body
-              });
-            } catch (error) {
-              core.error(`Failed to post comment: ${error}`);
-            }
+            
+            ${process.env.EXPLANATION}
+            
+            ---
+            *This automated review uses HuggingFace's free API*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
