@@ -13,7 +13,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 class MainActivity : AppCompatActivity(), Ipostadapter {
 
     private lateinit var adapter: PostAdapter
-    private lateinit var postDao: PostDao
+    private lateinit var postDao: PostAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
